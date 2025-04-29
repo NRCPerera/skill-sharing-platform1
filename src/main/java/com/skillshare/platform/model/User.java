@@ -23,8 +23,8 @@ public class User {
     // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     // private List<LearningPlan> learningPlans = new ArrayList<>();
 
-    // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    // private List<ProgressUpdate> progressUpdates = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<ProgressUpdate> progressUpdates = new ArrayList<>();
 
     @ManyToMany
     @JoinTable(
