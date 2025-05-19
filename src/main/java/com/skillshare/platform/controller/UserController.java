@@ -1,18 +1,19 @@
 package com.skillshare.platform.controller;
 
-//import com.skillshare.platform.model.Post;
+import com.skillshare.platform.dto.PostDTO;
+import com.skillshare.platform.dto.UserDTO;
 import com.skillshare.platform.model.User;
 import com.skillshare.platform.service.UserService;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -21,27 +22,40 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    private String extractEmail(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        } else if (principal instanceof OAuth2User oauth2User) {
+            return oauth2User.getAttribute("email");
+        }
+        throw new RuntimeException("Unsupported principal type");
+    }
+
     @GetMapping("/current")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
-        System.out.println("Current user email: " + email);
+    public ResponseEntity<Map<String, Object>> getCurrentUser(Authentication authentication) {
+        String email = extractEmail(authentication);
         User user = userService.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-    
-        // Create a response map instead of returning the entity directly
+
         Map<String, Object> response = new HashMap<>();
         response.put("id", user.getId());
         response.put("name", user.getName());
         response.put("email", user.getEmail());
-        // Add other needed fields but avoid circular references
+        response.put("bio", user.getBio());
+        response.put("provider", user.getProvider());
+        response.put("active", user.isActive());
+        response.put("profilePhotoUrl", user.getProfilePhotoUrl());
     
         return ResponseEntity.ok(response);
     }
 
     @PostMapping
-    public ResponseEntity<User> registerOrGetUser(@AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
-        String name = principal.getAttribute("name");
+    public ResponseEntity<User> registerOrGetUser(Authentication authentication) {
+        String email = extractEmail(authentication);
+        final String name = (authentication.getPrincipal() instanceof OAuth2User oauth2User) 
+                ? oauth2User.getAttribute("name") 
+                : null;
         
         User user = userService.findByEmail(email)
                 .orElseGet(() -> {
@@ -55,8 +69,8 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Long id) {
-        User user = userService.findById(id)
+    public ResponseEntity<UserDTO> getUser(@PathVariable Long id) {
+        UserDTO user = userService.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return ResponseEntity.ok(user);
     }
@@ -65,8 +79,8 @@ public class UserController {
     public ResponseEntity<Void> followUser(
             @PathVariable Long id,
             @PathVariable Long followId,
-            @AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
+            Authentication authentication) {
+        String email = extractEmail(authentication);
         userService.followUser(id, followId, email);
         return ResponseEntity.ok().build();
     }
@@ -75,24 +89,51 @@ public class UserController {
     public ResponseEntity<Void> unfollowUser(
             @PathVariable Long id,
             @PathVariable Long followId,
-            @AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
+            Authentication authentication) {
+        String email = extractEmail(authentication);
         userService.unfollowUser(id, followId, email);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}/following/{followId}")
-    public ResponseEntity<Void> isFollowing(
+    public ResponseEntity<Map<String, Boolean>> isFollowing(
             @PathVariable Long id,
             @PathVariable Long followId,
-            @AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
+            Authentication authentication) {
+        String email = extractEmail(authentication);
         boolean isFollowing = userService.isFollowing(id, followId, email);
-        return isFollowing ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+        return ResponseEntity.ok(Map.of("isFollowing", isFollowing));
     }
-    // @GetMapping("/{id}/posts")
-    // public ResponseEntity<List<Post>> getUserPosts(@PathVariable Long id) {
-    //     List<Post> posts = userService.getUserPosts(id);
-    //     return ResponseEntity.ok(posts);
-    // }
+
+    @GetMapping("/{id}/posts")
+    public ResponseEntity<List<PostDTO>> getUserPosts(@PathVariable Long id) {
+        List<PostDTO> posts = userService.getUserPosts(id);
+        return ResponseEntity.ok(posts);
+    }
+
+    @PatchMapping(value = "/{id}", consumes = "multipart/form-data")
+    public ResponseEntity<UserDTO> updateUser(
+            @PathVariable Long id,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "bio", required = false) String bio,
+            @RequestParam(value = "profilePhoto", required = false) MultipartFile profilePhoto,
+            Authentication authentication) {
+        
+        String authEmail = extractEmail(authentication);
+        UserDTO updatedUser = userService.updateUser(id, name, email, bio, profilePhoto, authEmail);
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @GetMapping("/{id}/followers")
+    public ResponseEntity<List<UserDTO>> getFollowers(@PathVariable Long id) {
+        List<UserDTO> followers = userService.getFollowers(id);
+        return ResponseEntity.ok(followers);
+    }
+
+    @GetMapping("/{id}/following")
+    public ResponseEntity<List<UserDTO>> getFollowing(@PathVariable Long id) {
+        List<UserDTO> following = userService.getFollowing(id);
+        return ResponseEntity.ok(following);
+    }
 }
