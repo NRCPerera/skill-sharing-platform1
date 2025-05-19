@@ -2,19 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
-import PostCard from '../components/PostCard';
-import CreatePostForm from '../components/CreatePostForm';
+import PostCard from '../components/Posts/PostCard';
 
 const Home = () => {
-  const { user, loading: authLoading, error: authError } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('Auth state changed:', { user, authLoading, authError });
-    
     if (authLoading) {
       console.log('Auth still loading...');
       return;
@@ -25,20 +22,15 @@ const Home = () => {
       navigate('/login');
       return;
     }
-
-    console.log('User available:', user);
+    console.log('User found:', user);
     fetchPosts();
   }, [user, authLoading, navigate]);
-  
-
-  
 
   const fetchPosts = async () => {
     try {
       setLoading(true);
       setError('');
       const response = await api.get('/api/posts');
-      console.log('API response for /api/posts:', response.data);
       const fetchedPosts = Array.isArray(response.data) ? response.data : [];
       setPosts(fetchedPosts);
     } catch (err) {
@@ -55,10 +47,6 @@ const Home = () => {
     }
   };
 
-  const handlePostCreated = (newPost) => {
-    setPosts([newPost, ...posts]);
-  };
-
   const handlePostDeleted = (postId) => {
     setPosts(posts.filter(post => post.id !== postId));
   };
@@ -70,20 +58,10 @@ const Home = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Home</h1>
+    <div className="container mx-auto px-4 py-6 max-w-4xl">
       
-      {/* Ensure CreatePostForm is properly displayed */}
-      <div className="mb-6">
-      {user && (
-        <div className="mb-6">
-          <CreatePostForm 
-            onPostCreated={handlePostCreated}
-            currentUser={user} 
-          />
-        </div>
-    )}
-      </div>
+      <h1 className="text-2xl font-bold text-black mb-4">Welcome, {user?.name}!</h1>
+      <h2 className="text-2xl font-bold text-black mb-4">Here are the latest posts:</h2>
       
       {loading ? (
         <div className="text-center py-10">
