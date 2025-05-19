@@ -24,6 +24,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // Extract user info from OAuth2User
         String email = oauth2User.getAttribute("email");
         String name = oauth2User.getAttribute("name");
+        String picture = oauth2User.getAttribute("picture"); // For Google OAuth
+        String provider = userRequest.getClientRegistration().getRegistrationId();
         
         if (email != null) {
             // Check if user exists
@@ -34,14 +36,23 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 User newUser = new User();
                 newUser.setEmail(email);
                 newUser.setName(name != null ? name : email.split("@")[0]);
-                // Set any other default values
+                newUser.setProvider(provider);
                 newUser.setBio(""); // Empty bio or some default text
+                newUser.setActive(true);
+                newUser.setProfilePhotoUrl(picture != null ? picture : ""); // Set profile photo URL
                 
                 // Save the new user
                 userRepository.save(newUser);
-                System.out.println("Created new user: " + email);
+                System.out.println("Created new OAuth user: " + email);
             } else {
-                System.out.println("Existing user logged in: " + email);
+                // Update existing user's OAuth provider and profile photo if needed
+                User existingUser = userOptional.get();
+                if (existingUser.getProvider() == null || !existingUser.getProvider().equals(provider)) {
+                    existingUser.setProvider(provider);
+                    existingUser.setProfilePhotoUrl(picture != null ? picture : existingUser.getProfilePhotoUrl());
+                    userRepository.save(existingUser);
+                }
+                System.out.println("Existing user logged in via OAuth: " + email);
             }
         }
         
