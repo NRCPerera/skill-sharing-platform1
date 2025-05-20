@@ -1,5 +1,6 @@
 package com.skillshare.platform.service;
 
+import com.skillshare.platform.dto.CommentDTO;
 import com.skillshare.platform.model.Comment;
 import com.skillshare.platform.model.Post;
 import com.skillshare.platform.model.User;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class CommentService {
@@ -27,9 +29,17 @@ public class CommentService {
     @Autowired
     private NotificationService notificationService;
 
-    public List<Comment> findByPostId(Long postId) {
-        return commentRepository.findByPostId(postId);
+    public List<CommentDTO> findByPostId(Long postId) {
+    return commentRepository.findByPostId(postId).stream()
+        .map(comment -> new CommentDTO(
+            comment.getId(),
+            comment.getContent(),
+            comment.getCreatedAt(),
+            comment.getUser().getName()
+        ))
+        .collect(Collectors.toList());
     }
+
 
     public Comment createComment(Long postId, String email, String content) {
         User user = userRepository.findByEmail(email)
