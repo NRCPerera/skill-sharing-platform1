@@ -1,8 +1,13 @@
 package com.skillshare.platform.model;
 
 import lombok.Data;
+import lombok.ToString;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
+@ToString(exclude = {"post"})
 @Data
 @Entity
 @Table(name = "media")
@@ -16,5 +21,6 @@ public class Media {
 
     @ManyToOne
     @JoinColumn(name = "post_id")
+    @JsonIgnore
     private Post post;
 }
